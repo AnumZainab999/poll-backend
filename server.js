@@ -10,6 +10,7 @@ const commentRoutes = require('./routes/commentRoutes');
 const app = express();
 const FRONTEND_ORIGIN = 'http://localhost:3000';
 
+// CORS setup
 app.use(cors({
   origin: FRONTEND_ORIGIN,
   credentials: true,
@@ -19,7 +20,10 @@ app.use(cors({
 
 app.use(express.json({ limit: '1mb' }));
 
-// Health
+// Favicon handler to prevent 500 errors
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
+// Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // Routes
@@ -33,14 +37,14 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ message: err.message || 'Server error' });
 });
 
-// Connect DB (runs once when serverless function cold starts)
+// Connect DB safely for serverless
 (async () => {
   try {
     await sequelize.authenticate();
     console.log('✅ DB connected');
     await sequelize.sync({ alter: true }); // dev only
   } catch (e) {
-    console.error('❌ Startup error:', e.message);
+    console.error('❌ DB Startup error:', e.message);
   }
 })();
 
