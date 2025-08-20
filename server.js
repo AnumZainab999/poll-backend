@@ -11,7 +11,7 @@ const commentRoutes = require('./routes/commentRoutes');
 const app = express();
 
 // Frontend origin
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+const FRONTEND_ORIGIN = 'http://localhost:3000';
 
 // Middleware
 app.use(cors({
@@ -23,14 +23,11 @@ app.use(cors({
 
 app.use(express.json({ limit: '1mb' }));
 
-// ✅ Serve static files (favicon, etc.)
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ✅ Favicon handler (in case file not found)
+// ✅ Serve favicon.ico (avoid 500 error in logs)
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'favicon.ico'), (err) => {
     if (err) {
-      // Agar favicon file nahi mile to 204 (No Content) bhejo
+      console.warn('⚠️ Favicon not found, sending 204');
       res.status(204).end();
     }
   });
