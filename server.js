@@ -20,7 +20,7 @@ app.use(cors({
 
 app.use(express.json({ limit: '1mb' }));
 
-// Favicon handler to prevent 500 errors
+// ✅ Favicon handler (place at the top)
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Health check
