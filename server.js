@@ -1,57 +1,64 @@
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const sequelize = require('./config/db'); // Sequelize instance
 
+// Import routes
 const authRoutes = require('./routes/authRoutes');
 const pollRoutes = require('./routes/pollRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 
 const app = express();
 
-// Frontend origin
-const FRONTEND_ORIGIN = 'http://localhost:3000';
-
-// Middleware
+// --------------------- Middleware ---------------------
 app.use(cors({
-  origin: FRONTEND_ORIGIN,
-  credentials: true,
-  methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: '*', // or replace with your frontend URL in production
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 app.use(express.json({ limit: '1mb' }));
 
-// Favicon handler
-app.get('/favicon.ico', (req, res) => {
-  console.log('Favicon requested');
-  res.status(204).end();
+// Handle preflight requests
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
 });
 
+// Serve static files (only public folder now)
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Health check
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
-
-// Routes
+// --------------------- Routes ---------------------
 app.use('/api/auth', authRoutes);
 app.use('/api/polls', pollRoutes);
 app.use('/api/comments', commentRoutes);
 
-// Error handler
+// Health check
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.send('Welcome to the Polls API 🚀');
+});
+
+// --------------------- Error handler ---------------------
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error('❌ Error:', err.message);
   res.status(err.status || 500).json({ message: err.message || 'Server error' });
 });
 
-// Connect DB once
+// --------------------- Database connection ---------------------
 (async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ DB connected');
+    console.log('✅ Database connected');
     if (process.env.NODE_ENV !== 'production') {
       await sequelize.sync({ alter: true });
-      console.log('✅ DB synced');
+      console.log('✅ Models synced');
     }
   } catch (e) {
     console.error('❌ DB Startup error:', e.message);
