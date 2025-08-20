@@ -24,7 +24,11 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 
 // Favicon handler
-app.get('/favicon.ico', (req, res) => res.status(204).end());
+app.get('/favicon.ico', (req, res) => {
+  console.log('Favicon requested');
+  res.status(204).end();
+});
+
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
