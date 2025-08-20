@@ -1,4 +1,4 @@
-const sequelize = require('../config/db');
+const sequelize = require('../config/database');
 
 const initUser = require('./User');
 const initPoll = require('./Poll');
