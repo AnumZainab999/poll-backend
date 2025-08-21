@@ -11,7 +11,7 @@ const commentRoutes = require('./routes/commentRoutes');
 const app = express();
 
 // Frontend origin
-const FRONTEND_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
+const FRONTEND_ORIGIN =  'http://localhost:3000';
 
 // Middleware
 app.use(cors({
