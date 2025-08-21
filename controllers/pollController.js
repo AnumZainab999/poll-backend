@@ -139,17 +139,33 @@ exports.voteOnPoll = async (req, res) => {
   }
 };
 
-// ✅ Get Poll Stats
+// get poll stats 
+
 exports.getPollStats = async (req, res) => {
   try {
     const pollId = parseInt(req.params.id);
-    const { data: options } = await supabase
+
+    const { data: options, error } = await supabase
       .from('options')
-      .select('id, text, (SELECT COUNT(*) FROM votes WHERE option_id = options.id) AS votes')
+      .select(`
+        id,
+        text,
+        votes:votes(count)
+      `)
       .eq('poll_id', pollId);
 
-    res.json({ data: options });
+    if (error) throw error;
+
+    // Supabase returns votes as array with count
+    const formatted = options.map((o) => ({
+      id: o.id,
+      text: o.text,
+      votes: o.votes?.[0]?.count || 0,
+    }));
+
+    res.json({ data: formatted });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
