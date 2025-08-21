@@ -14,12 +14,13 @@ const app = express();
 const FRONTEND_ORIGIN =  'http://localhost:3000';
 
 // Middleware
+
 app.use(cors({
-  origin: FRONTEND_ORIGIN,
-  credentials: true,
+  origin: '*',  // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 
 app.use(express.json({ limit: '1mb' }));
 
