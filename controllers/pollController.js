@@ -1,39 +1,52 @@
-const { sequelize, Poll, Option, Vote, User } = require('../models');
+const { Poll, Option, Vote, User } = require('../models');
+const supabase = require('../config/database');
 
 exports.createPoll = async (req, res) => {
-  const t = await sequelize.transaction();
   try {
     const { question, options, expiresAt } = req.body;
     if (!question || !Array.isArray(options) || options.length < 2) {
       return res.status(400).json({ message: 'Question and at least 2 options required' });
     }
 
-    const poll = await Poll.create({ question, userId: req.user.id, expiresAt: expiresAt || null }, { transaction: t });
-    const optPayload = options.map((text) => ({ text, pollId: poll.id }));
-    await Option.bulkCreate(optPayload, { transaction: t });
+    // create poll
+    const poll = await Poll.create({ question, user_id: req.user.id, expires_at: expiresAt || null });
 
-    await t.commit();
+    // create options
+    const optPayload = options.map((text) => ({ text, poll_id: poll.id }));
+    await Option.bulkCreate(optPayload);
 
-    const created = await Poll.findByPk(poll.id, { include: [ { model: Option }, { model: User, attributes: ['id','username','avatarUrl'] } ] });
-    res.status(201).json({ message: 'Poll created', data: created });
+    // fetch created poll with options and user info
+    const { data: createdOptions } = await supabase
+      .from('options')
+      .select('*')
+      .eq('poll_id', poll.id);
+
+    const user = await User.findById(req.user.id);
+
+    res.status(201).json({ message: 'Poll created', data: { ...poll, options: createdOptions, user } });
   } catch (err) {
-    await t.rollback();
     res.status(500).json({ message: err.message });
   }
 };
 
 exports.getActivePolls = async (req, res) => {
   try {
-    const now = new Date();
-    const polls = await Poll.findAll({
-      where: sequelize.where(
-        sequelize.literal('(expiresAt IS NULL OR expiresAt > NOW())'),
-        true
-      ),
-      include: [ { model: Option }, { model: User, attributes: ['id','username','avatarUrl'] } ],
-      order: [['createdAt','DESC']]
-    });
-    res.json({ data: polls });
+    const { data: polls, error } = await supabase
+      .from('polls')
+      .select('*')
+      .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // fetch options and user info for each poll
+    const result = await Promise.all(polls.map(async (poll) => {
+      const { data: options } = await supabase.from('options').select('*').eq('poll_id', poll.id);
+      const user = await User.findById(poll.user_id);
+      return { ...poll, options, user };
+    }));
+
+    res.json({ data: result });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -41,9 +54,13 @@ exports.getActivePolls = async (req, res) => {
 
 exports.getPollById = async (req, res) => {
   try {
-    const poll = await Poll.findByPk(req.params.id, { include: [ Option, { model: User, attributes: ['id','username','avatarUrl'] } ] });
+    const poll = await Poll.findById(parseInt(req.params.id));
     if (!poll) return res.status(404).json({ message: 'Poll not found' });
-    res.json({ data: poll });
+
+    const { data: options } = await supabase.from('options').select('*').eq('poll_id', poll.id);
+    const user = await User.findById(poll.user_id);
+
+    res.json({ data: { ...poll, options, user } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -51,10 +68,11 @@ exports.getPollById = async (req, res) => {
 
 exports.deletePoll = async (req, res) => {
   try {
-    const poll = await Poll.findByPk(req.params.id);
+    const poll = await Poll.findById(parseInt(req.params.id));
     if (!poll) return res.status(404).json({ message: 'Poll not found' });
-    if (poll.userId !== req.user.id) return res.status(403).json({ message: 'Not allowed' });
-    await poll.destroy();
+    if (poll.user_id !== req.user.id) return res.status(403).json({ message: 'Not allowed' });
+
+    await supabase.from('polls').delete().eq('id', poll.id);
     res.json({ message: 'Poll deleted' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -62,54 +80,48 @@ exports.deletePoll = async (req, res) => {
 };
 
 exports.voteOnPoll = async (req, res) => {
-  const t = await sequelize.transaction();
   try {
-    const pollId = parseInt(req.params.id, 10);
+    const pollId = parseInt(req.params.id);
     const { optionId } = req.body;
 
-    // check poll existence & expiry
-    const poll = await Poll.findByPk(pollId);
+    const poll = await Poll.findById(pollId);
     if (!poll) return res.status(404).json({ message: 'Poll not found' });
-    if (poll.expiresAt && new Date(poll.expiresAt) <= new Date()) {
+    if (poll.expires_at && new Date(poll.expires_at) <= new Date()) {
       return res.status(400).json({ message: 'Poll expired' });
     }
 
-    // ensure option belongs to poll
-    const option = await Option.findOne({ where: { id: optionId, pollId } });
+    const { data: option } = await supabase.from('options').select('*').eq('id', optionId).eq('poll_id', pollId).single();
     if (!option) return res.status(400).json({ message: 'Invalid option for this poll' });
 
-    // unique vote per user per poll
-    const existing = await Vote.findOne({ where: { userId: req.user.id, pollId } });
+    const { data: existing } = await supabase.from('votes').select('*').eq('user_id', req.user.id).eq('poll_id', pollId).single();
     if (existing) return res.status(400).json({ message: 'User already voted' });
 
-    // record vote
-    await Vote.create({ userId: req.user.id, optionId: option.id, pollId }, { transaction: t });
-    await t.commit();
+    await Vote.create({ user_id: req.user.id, option_id: option.id, poll_id: pollId });
 
-    // fetch updated counts
-    const options = await Option.findAll({
-      where: { pollId },
-      attributes: ['id', 'text', [sequelize.literal(`(
-        SELECT COUNT(*) FROM Votes v WHERE v.optionId = Option.id
-      )`), 'votes']]
-    });
+    const { data: options } = await supabase
+      .from('options')
+      .select('id, text, (SELECT COUNT(*) FROM votes WHERE option_id = options.id) AS votes')
+      .eq('poll_id', pollId);
 
-    // emit real-time update to room
-    req.io.to(`poll:${pollId}`).emit('pollUpdated', { pollId, options });
+    // emit real-time update
+    req.io?.to(`poll:${pollId}`).emit('pollUpdated', { pollId, options });
 
     res.json({ message: 'Vote recorded', data: { pollId, options } });
   } catch (err) {
-    await t.rollback();
     res.status(500).json({ message: err.message });
   }
 };
 
-
 exports.getPollStats = async (req, res) => {
-  const { id } = req.params;
-  const options = await Option.findAll({
-    where: { pollId: id },
-    attributes: ['id', 'text', [sequelize.literal(`(SELECT COUNT(*) FROM Votes v WHERE v.optionId = Option.id)`), 'votes']]
-  });
-  res.json({ data: options });
+  try {
+    const pollId = parseInt(req.params.id);
+    const { data: options } = await supabase
+      .from('options')
+      .select('id, text, (SELECT COUNT(*) FROM votes WHERE option_id = options.id) AS votes')
+      .eq('poll_id', pollId);
+
+    res.json({ data: options });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
