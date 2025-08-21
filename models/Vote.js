@@ -1,15 +1,24 @@
-const { DataTypes } = require('sequelize');
+const supabase = require('../config/database');
 
-module.exports = (sequelize) => {
-  return sequelize.define('Vote', {
-    id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
-    userId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
-    optionId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
-    pollId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
-  }, {
-    timestamps: true,
-    indexes: [
-      { unique: true, fields: ['userId', 'pollId'] },
-    ],
-  });
+const Vote = {
+  async create(data) {
+    const { data: vote, error } = await supabase
+      .from('votes')
+      .insert([data])
+      .select()
+      .single();
+    if (error) throw error;
+    return vote;
+  },
+
+  async findByUserId(userId) {
+    const { data, error } = await supabase
+      .from('votes')
+      .select('*')
+      .eq('user_id', userId);
+    if (error) throw error;
+    return data;
+  }
 };
+
+module.exports = Vote;

@@ -1,10 +1,24 @@
-const { DataTypes } = require('sequelize');
+const supabase = require('../config/database');
 
-module.exports = (sequelize) => {
-  return sequelize.define('Comment', {
-    id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
-    text: { type: DataTypes.STRING(500), allowNull: false },
-    pollId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
-    userId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
-  }, { timestamps: true });
+const Comment = {
+  async create(data) {
+    const { data: comment, error } = await supabase
+      .from('comments')
+      .insert([data])
+      .select()
+      .single();
+    if (error) throw error;
+    return comment;
+  },
+
+  async findByPollId(pollId) {
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*')
+      .eq('poll_id', pollId);
+    if (error) throw error;
+    return data;
+  }
 };
+
+module.exports = Comment;

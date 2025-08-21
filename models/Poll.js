@@ -1,20 +1,34 @@
-const { DataTypes, Model } = require('sequelize');
+const supabase = require('../config/database');
 
-class Poll extends Model {}
+const Poll = {
+  async create(data) {
+    const { data: poll, error } = await supabase
+      .from('polls')
+      .insert([data])
+      .select()
+      .single();
+    if (error) throw error;
+    return poll;
+  },
 
-function initPoll(sequelize) {
-  Poll.init({
-    id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
-    question: { type: DataTypes.STRING(255), allowNull: false },
-    expiresAt: { type: DataTypes.DATE, allowNull: true },
-    userId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
-  }, {
-    sequelize,
-    modelName: 'Poll',
-    timestamps: true
-  });
+  async findByUserId(userId) {
+    const { data, error } = await supabase
+      .from('polls')
+      .select('*')
+      .eq('user_id', userId);
+    if (error) throw error;
+    return data;
+  },
 
-  return Poll;
-}
+  async findById(id) {
+    const { data, error } = await supabase
+      .from('polls')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return data;
+  }
+};
 
-module.exports = initPoll;
+module.exports = Poll;

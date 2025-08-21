@@ -1,17 +1,14 @@
-const { Sequelize } = require('sequelize');
+// ./config/supabase.js
 require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
 
-const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASS,
-  {
-    host: process.env.DB_HOST,
-    dialect: process.env.DB_DIALECT || 'mysql',
-    logging: process.env.DB_LOGGING === 'true' ? console.log : false,
-    define: { underscored: false, freezeTableName: false },
-    pool: { max: 10, min: 0, acquire: 30000, idle: 10000 }
-  }
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
 
-module.exports = sequelize;
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('SUPABASE_URL and SUPABASE_KEY must be provided in .env');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+module.exports = supabase;

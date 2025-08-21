@@ -1,25 +1,35 @@
-const { DataTypes, Model } = require('sequelize');
+const supabase = require('../config/database');
 
-class User extends Model {
-  static associate(models) {
-    this.hasMany(models.Poll, { foreignKey: 'userId' });
-    this.hasMany(models.Comment, { foreignKey: 'userId', onDelete: 'CASCADE' });
+const User = {
+  async create(data) {
+    const { data: user, error } = await supabase
+      .from('users')
+      .insert([data])
+      .select()
+      .single();
+    if (error) throw error;
+    return user;
+  },
+
+  async findByEmail(email) {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+    if (error) throw error;
+    return user;
+  },
+
+  async findById(id) {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return user;
   }
-}
+};
 
-function initModel(sequelize) {
-  User.init({
-    id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
-    username: { type: DataTypes.STRING(60), allowNull: false },
-    email: { type: DataTypes.STRING(120), allowNull: false, unique: true },
-    password: { type: DataTypes.STRING(200), allowNull: false },
-    avatarUrl: { type: DataTypes.STRING(255) },
-  }, {
-    sequelize,
-    modelName: 'User',
-    timestamps: true
-  });
-  return User;
-}
-
-module.exports = initModel;
+module.exports = User;

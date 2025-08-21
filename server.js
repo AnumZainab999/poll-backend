@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const sequelize = require('./config/database'); // Sequelize instance
+const supabase = require('./config/database'); // Supabase client
 
 const authRoutes = require('./routes/authRoutes');
 const pollRoutes = require('./routes/pollRoutes');
@@ -11,19 +11,19 @@ const commentRoutes = require('./routes/commentRoutes');
 const app = express();
 
 // Frontend origin
-const FRONTEND_ORIGIN = 'http://localhost:3000';
+const FRONTEND_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
 
 // Middleware
 app.use(cors({
   origin: FRONTEND_ORIGIN,
   credentials: true,
-  methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json({ limit: '1mb' }));
 
-// ✅ Serve favicon.ico (avoid 500 error in logs)
+// Serve favicon.ico (avoid 500 error in logs)
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'favicon.ico'), (err) => {
     if (err) {
@@ -47,17 +47,15 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ message: err.message || 'Server error' });
 });
 
-// Connect DB once
+// Test Supabase connection
 (async () => {
   try {
-    await sequelize.authenticate();
-    console.log('✅ DB connected');
-    if (process.env.NODE_ENV !== 'production') {
-      await sequelize.sync({ alter: true });
-      console.log('✅ DB synced');
-    }
+    // Perform a simple query to test the connection
+    const { data, error } = await supabase.from('users').select('id').limit(1);
+    if (error) throw error;
+    console.log('✅ Supabase connected');
   } catch (e) {
-    console.error('❌ DB Startup error:', e.message);
+    console.error('❌ Supabase connection error:', e.message);
   }
 })();
 

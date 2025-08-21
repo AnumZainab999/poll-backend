@@ -1,19 +1,24 @@
-const { DataTypes, Model } = require('sequelize');
+const supabase = require('../config/database');
 
-class Option extends Model {}
+const Option = {
+  async create(data) {
+    const { data: option, error } = await supabase
+      .from('options')
+      .insert([data])
+      .select()
+      .single();
+    if (error) throw error;
+    return option;
+  },
 
-function initOption(sequelize) {
-  Option.init({
-    id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
-    text: { type: DataTypes.STRING(200), allowNull: false },
-    pollId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
-  }, {
-    sequelize,
-    modelName: 'Option',
-    timestamps: true
-  });
+  async findByPollId(pollId) {
+    const { data, error } = await supabase
+      .from('options')
+      .select('*')
+      .eq('poll_id', pollId);
+    if (error) throw error;
+    return data;
+  }
+};
 
-  return Option;
-}
-
-module.exports = initOption;
+module.exports = Option;
