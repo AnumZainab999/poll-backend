@@ -15,7 +15,7 @@ const app = express();
 // Middleware
 const allowedOrigins = [
   'http://localhost:3000',                 // local dev
-  'https://your-frontend.vercel.app'      // deployed frontend
+  'http://poll-frontend.web.app'      // deployed frontend
 ];
 
 app.use((req, res, next) => {
