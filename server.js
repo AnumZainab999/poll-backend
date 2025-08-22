@@ -15,7 +15,7 @@ const app = express();
 // Middleware
 const allowedOrigins = [
   'http://localhost:3000',                 // local dev
-  'http://poll-frontend.web.app'      // deployed frontend
+  'https://poll-frontend.web.app'      // deployed frontend
 ];
 
 app.use((req, res, next) => {
